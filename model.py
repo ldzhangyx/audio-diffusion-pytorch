@@ -24,7 +24,9 @@ class GuidanceModel(pl.LightningModule):
                     cross_attentions=[0, 0, 0, 1, 1, 1, 1, 1, 1], # U-Net: cross-attention enabled/disabled at each layer
                 )
         pretrained_model_ckpt = "/import/c4dm-04/yz007/best.pth"
-        self.condition_model = get_model(ckpt=pretrained_model_ckpt)
+        self.condition_model, self.tokenizer, self.condition_model_config = get_model(ckpt=pretrained_model_ckpt)
+        for param in self.condition_model.parameters():
+            param.requires_grad = False
         self.wave_length = 81920
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
@@ -33,18 +35,21 @@ class GuidanceModel(pl.LightningModule):
     @torch.no_grad()
     def sample(self, text = "", num_steps=100, *args, **kwargs) -> torch.Tensor:
         noise = torch.randn(1, 2, self.wave_length)
+        text_input_vec = self.tokenizer(text, return_tensors="pt")['input_ids'].cuda()
         embedding = self.condition_model.encode_bert_text(text)
         embedding = embedding.unsqueeze(1).unsqueeze(1)
         return self.model.sample(noise, embedding=embedding, num_steps=num_steps, *args, **kwargs)
 
     def training_step(self, batch, batch_idx):
-        audio_wave, audio_embedding = batch
+        audio_wave = batch
+        audio_embedding = self.condition_model.encode_audio(audio_wave)
         loss = self.model(audio_wave, embedding=audio_embedding)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        audio_wave, audio_embedding = batch
+        audio_wave = batch
+        audio_embedding = self.condition_model.encode_audio(audio_wave)
         loss = self.model(audio_wave, embedding=audio_embedding)
         self.log("val_loss", loss)
         return loss

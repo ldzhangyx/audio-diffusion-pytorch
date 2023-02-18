@@ -4,8 +4,8 @@ from model import GuidanceModel
 from data import Music4AllDataset, Music4AllDataModule
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-BATCH_SIZE = 32
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+BATCH_SIZE = 4
 
 def main():
     pl.seed_everything(42)

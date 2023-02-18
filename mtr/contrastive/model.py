@@ -24,8 +24,8 @@ class ContrastiveModel(nn.Module):
         self.a_latent = nn.Identity()
         self.t_latent = nn.Identity()
 
-    def forward(self, audio, text, text_mask=None, t=None):
-        h_audio = self.encode_audio(audio, t=t)
+    def forward(self, audio, text, text_mask=None):
+        h_audio = self.encode_audio(audio)
         h_text = self.encode_bert_text(text, text_mask)
         audio_loss = self.head(h_audio, h_text)
         text_loss = self.head(h_text, h_audio)
@@ -36,16 +36,17 @@ class ContrastiveModel(nn.Module):
         return loss, audio_acc, text_acc, self.logit_scale
 
         
-    def encode_audio(self, audio, t=None):
+    def encode_audio(self, audio):
         # check audio shape
         if audio.size(-1) == 128 and audio.size(-2) != 128:  # means audio in (B, length, dim)
             audio = audio.transpose(1, 2)
         if audio.size(-1) < 992:
             audio = repeat_padding(audio, 992)
-        audio_emb = self.audio_encoder(audio, t=t)
+        audio_emb = self.audio_encoder(audio)
         h_audio = self.a_latent(audio_emb[:,0,:])
         z_audio = self.audio_projector(h_audio)
         return z_audio
+
 
     def encode_bert_text(self, text, text_mask=None):
         text_emb = self.text_encoder(input_ids=text, attention_mask=text_mask)
