@@ -1,22 +1,28 @@
 import pytorch_lightning as pl
 import torch
-from model import GuidanceModel
-from data import Music4AllDataset, Music4AllDataModule
+from latent_decoder import GuidanceModel
+from ae import GuidedAE
+from data import Music4AllDataModule
 import os
+from audio_diffusion_pytorch import EMA
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-BATCH_SIZE = 4
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+BATCH_SIZE = 32
+SAMPLING_RATE = int(16000 / 1)
+SEGMENT_LENGTH = int(81920 / 1)
 
 def main():
     pl.seed_everything(42)
-    guidance_model = GuidanceModel()
-    data_module = Music4AllDataModule(batch_size=BATCH_SIZE)
+    guidance_model = GuidedAE()
+    data_module = Music4AllDataModule(batch_size=BATCH_SIZE,
+                                      sample_rate=SAMPLING_RATE,
+                                      segment_length=SEGMENT_LENGTH)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         save_top_k=3,
         monitor="val_loss",
         mode="min",
         dirpath="/import/c4dm-04/yz007/checkpoints",
-        filename="mousai-{epoch:02d}-{val_loss:.2f}",
+        filename="ae-{epoch:02d}-{val_loss:.2f}",
     )
     trainer = pl.Trainer(
         enable_checkpointing=True,
@@ -24,16 +30,18 @@ def main():
         accelerator='gpu',
         # auto_select_gpus=True,
         # strategy='ddp',
-        # devices=1,
+        # devices=2,
         precision=16,
         log_every_n_steps=1,
-        logger=pl.loggers.TensorBoardLogger("logs", name="guidance"),
+        logger=pl.loggers.TensorBoardLogger("logs", name=f"guidance-{SAMPLING_RATE}"),
         max_epochs=50,
         val_check_interval=0.1,
-        limit_val_batches=0.5,
-        callbacks=[checkpoint_callback]  # , FinetuningScheduler()],
+        limit_val_batches=300,
+        limit_train_batches=15300,
+        callbacks=[checkpoint_callback, EMA]
     )
     trainer.fit(guidance_model,
+                ckpt="/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt",
                 datamodule=data_module,
                 )
 

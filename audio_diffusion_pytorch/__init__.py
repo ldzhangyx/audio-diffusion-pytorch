@@ -16,3 +16,4 @@ from .models import (
     DiffusionUpsampler,
     DiffusionVocoder,
 )
+from .ema import EMA, EMAOptimizer

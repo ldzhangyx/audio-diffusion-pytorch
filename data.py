@@ -1,3 +1,4 @@
+import numpy
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -72,8 +73,11 @@ class Music4AllDataset(Dataset):
 
         data, _ = sf.read(
             wav_file, start=offset, frames=frames, dtype='float32', always_2d=True)
-        # data = data.mean(axis=1)
+        # data = data.mean(axis=1, keepdims=True)  # numpy array
+        if data.shape[-1] == 1:
+            data = np.concatenate([data, data], axis=-1)
         return data
+
 
     def __getitem__(self, index: int):
         file_idx, chunk_idx = self._get_file_idx_and_chunk_idx(index)
@@ -89,14 +93,14 @@ class Music4AllDataset(Dataset):
 
 
 class Music4AllDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size: int = 32, num_workers: int = 8, sample_rate: int = 16000, segment_length: int = 81920):
+    def __init__(self, batch_size: int = 32, num_workers: int = 0, sample_rate: int = 16000, segment_length: int = 81920):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.sample_rate = sample_rate
         self.segment_length = segment_length
         self.cache = True
-        self.cache_folder = "cache"
+        self.cache_folder = f"cache/{sample_rate}_{segment_length}"
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
@@ -129,13 +133,13 @@ class Music4AllDataModule(pl.LightningDataModule):
 
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, pin_memory=True)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, pin_memory=True)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, pin_memory=True)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
 
 
 def load_dataset(path):
@@ -143,4 +147,7 @@ def load_dataset(path):
 
 
 def save_dataset(dataset, path):
+    folder_path = os.path.dirname(path)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     pickle.dump(dataset, open(path, 'wb'), protocol=pickle.HIGHEST_PROTOCOL)

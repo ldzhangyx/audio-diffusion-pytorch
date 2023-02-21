@@ -33,12 +33,14 @@ class GuidanceModel(pl.LightningModule):
         return self.model(*args, **kwargs)
 
     @torch.no_grad()
-    def sample(self, text = "", num_steps=100, *args, **kwargs) -> torch.Tensor:
+    def sample(self, text = "piano", num_steps=100, *args, **kwargs) -> torch.Tensor:
         noise = torch.randn(1, 2, self.wave_length)
         text_input_vec = self.tokenizer(text, return_tensors="pt")['input_ids'].cuda()
         embedding = self.condition_model.encode_bert_text(text)
         embedding = embedding.unsqueeze(1).unsqueeze(1)
-        return self.model.sample(noise, embedding=embedding, num_steps=num_steps, *args, **kwargs)
+        return self.model.sample(noise,
+                                 embedding=embedding,
+                                 num_steps=num_steps, *args, **kwargs)
 
     def training_step(self, batch, batch_idx):
         audio_wave = batch
