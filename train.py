@@ -24,6 +24,9 @@ def main():
         dirpath="/import/c4dm-04/yz007/checkpoints",
         filename="ae-{epoch:02d}-{val_loss:.2f}",
     )
+    ema_callback = EMA(
+        decay=0.995,
+    )
     trainer = pl.Trainer(
         enable_checkpointing=True,
         # default_root_dir="/import/c4dm-04/yz007/checkpoints",
@@ -38,10 +41,11 @@ def main():
         val_check_interval=0.1,
         limit_val_batches=300,
         limit_train_batches=15300,
-        callbacks=[checkpoint_callback, EMA]
+        callbacks=[checkpoint_callback, ema_callback]
     )
+    guidance_model = guidance_model.load_from_checkpoint("/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt")
     trainer.fit(guidance_model,
-                ckpt="/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt",
+                # ckpt_path="/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt",
                 datamodule=data_module,
                 )
 

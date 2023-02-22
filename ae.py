@@ -56,13 +56,10 @@ class GuidedAE(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = EMAOptimizer(
-            torch.optim.AdamW(
+        optimizer = torch.optim.AdamW(
                 self.model.parameters(),
                 lr=1e-4,
                 betas=(0.95, 0.999),
                 eps=1e-6,
                 weight_decay=1e-3),
-            decay=0.995,
-        )
         return optimizer
