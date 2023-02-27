@@ -5,7 +5,9 @@ from ae import GuidedAE
 from data import Music4AllDataModule
 import os
 from audio_diffusion_pytorch import EMA
+import wandb
 
+wandb.login()
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 BATCH_SIZE = 32
 SAMPLING_RATE = int(16000 / 1)
@@ -22,7 +24,7 @@ def main():
         monitor="val_loss",
         mode="min",
         dirpath="/import/c4dm-04/yz007/checkpoints",
-        filename="ae-{epoch:02d}-{val_loss:.2f}",
+        filename="ae-{epoch:02d}-{val_loss:.4f}",
     )
     ema_callback = EMA(
         decay=0.995,
@@ -36,16 +38,18 @@ def main():
         # devices=2,
         precision=16,
         log_every_n_steps=1,
-        logger=pl.loggers.TensorBoardLogger("logs", name=f"guidance-{SAMPLING_RATE}"),
+        logger=pl.loggers.WandbLogger(project=f"ae-{SAMPLING_RATE}",
+                                      version='yf26rxjo',
+                                      ),
         max_epochs=50,
         val_check_interval=0.1,
         limit_val_batches=300,
         limit_train_batches=15300,
         callbacks=[checkpoint_callback, ema_callback]
     )
-    guidance_model = guidance_model.load_from_checkpoint("/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt")
+    # guidance_model = guidance_model.load_from_checkpoint("/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt")
     trainer.fit(guidance_model,
-                # ckpt_path="/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt",
+                ckpt_path="/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.0920.ckpt",
                 datamodule=data_module,
                 )
 

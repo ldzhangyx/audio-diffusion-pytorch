@@ -93,7 +93,7 @@ class Music4AllDataset(Dataset):
 
 
 class Music4AllDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size: int = 32, num_workers: int = 0, sample_rate: int = 16000, segment_length: int = 81920):
+    def __init__(self, batch_size: int = 32, num_workers: int = 64, sample_rate: int = 16000, segment_length: int = 81920):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
