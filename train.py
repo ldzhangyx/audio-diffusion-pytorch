@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 import torch
-from latent_decoder import GuidanceModel
+from latent_model import GuidanceModel
 from ae import GuidedAE
 from data import Music4AllDataModule
 import os
@@ -41,15 +41,15 @@ def main():
         logger=pl.loggers.WandbLogger(project=f"ae-{SAMPLING_RATE}",
                                       version='yf26rxjo',
                                       ),
-        max_epochs=50,
+        max_epochs=80,
         val_check_interval=0.1,
-        limit_val_batches=300,
+        limit_val_batches=500,
         limit_train_batches=15300,
         callbacks=[checkpoint_callback, ema_callback]
     )
     # guidance_model = guidance_model.load_from_checkpoint("/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt")
     trainer.fit(guidance_model,
-                ckpt_path="/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.0920.ckpt",
+                ckpt_path="/import/c4dm-04/yz007/checkpoints/ae-epoch=49-val_loss=0.0723.ckpt",
                 datamodule=data_module,
                 )
 

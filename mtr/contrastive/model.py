@@ -38,10 +38,12 @@ class ContrastiveModel(nn.Module):
         
     def encode_audio(self, audio):
         # check audio shape
-        if audio.size(-1) == 128 and audio.size(-2) != 128:  # means audio in (B, length, dim)
+        if audio.size(-1) == 128 and audio.size(-2) != 128:  # which means audio in (B, length, dim)
             audio = audio.transpose(1, 2)
         if audio.size(-1) < 992:
             audio = repeat_padding(audio, 992)
+        if audio.size(-1) > 992:
+            audio = audio[:, :, :992]
         audio_emb = self.audio_encoder(audio)
         h_audio = self.a_latent(audio_emb[:,0,:])
         z_audio = self.audio_projector(h_audio)

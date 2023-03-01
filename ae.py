@@ -6,6 +6,7 @@ from mtr.contrastive.model import ContrastiveModel
 from mtr.utils.demo_utils import get_model
 from audio_diffusion_pytorch import DiffusionAE, UNetV0, VDiffusion, VSampler, EMAOptimizer
 from audio_encoders_pytorch import MelE1d, TanhBottleneck
+import wandb
 
 class GuidedAE(pl.LightningModule):
     def __init__(self):
@@ -17,7 +18,7 @@ class GuidedAE(pl.LightningModule):
                 factors=[2],
                 num_blocks=[12],
                 out_channels=32,  # channels of latent representation
-                mel_channels=80,  # Mel-spectrogram channels
+                mel_channels=80,  # Mel-spectrogram channels # should be 128
                 mel_sample_rate=16000,
                 mel_normalize_log=True,
                 bottleneck=TanhBottleneck(),)
@@ -31,16 +32,26 @@ class GuidedAE(pl.LightningModule):
                 diffusion_t=VDiffusion, # The diffusion method used
                 sampler_t=VSampler,) # The diffusion sampler used)
 
+        self.save_hyperparameters()
+
     def forward(self) -> torch.Tensor:
         return self.model()
 
     @torch.no_grad()
-    def sample(self, text = "piano", num_steps=100, length=81920) -> torch.Tensor:
-        noise = torch.randn(1, 2, length)
-        latent = self.model.encode(noise)
-        sample = self.model.decode(latent, num_steps=100)
-        # write wav file
-
+    def sample(self, input_array, num_steps=100) -> torch.Tensor:
+        # if dim = 2, unsqueeze to dim = 3
+        if input_array.dim() == 2:
+            input_array = input_array.unsqueeze(0)
+        # bug to fix: length bust be multiple of 2
+        input_array = input_array[:, :, :65536]
+        latent = self.model.encode(input_array)
+        sample = self.model.decode(latent, num_steps=num_steps)
+        # log wave files
+        for i in range(sample.shape[0]):
+            output_sample = sample[i].cpu().permute(1, 0).numpy()
+            input_sample = input_array[i].cpu().permute(1, 0).numpy()
+            self.logger.experiment.log({"origin/sampled audio": [wandb.Audio(input_sample, sample_rate=16000),
+                                        wandb.Audio(output_sample, sample_rate=16000)]})
         return sample
 
     def training_step(self, batch, batch_idx):
@@ -53,6 +64,9 @@ class GuidedAE(pl.LightningModule):
         batch = batch.permute(0, 2, 1)
         loss = self.model(batch)
         self.log("val_loss", loss)
+        # for each validation, only log 4 samples
+        if batch_idx == 0:
+            self.sample(batch, num_steps=100)
         return loss
 
     def configure_optimizers(self):
@@ -61,5 +75,5 @@ class GuidedAE(pl.LightningModule):
                 lr=1e-4,
                 betas=(0.95, 0.999),
                 eps=1e-6,
-                weight_decay=1e-3),
+                weight_decay=1e-3)
         return optimizer

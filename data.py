@@ -132,8 +132,8 @@ class Music4AllDataModule(pl.LightningDataModule):
                     save_dataset(self.test_dataset, f"{self.cache_folder}/test.pkl")
 
 
-    def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
+    def train_dataloader(self, shuffle=True):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=shuffle, num_workers=self.num_workers)
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
