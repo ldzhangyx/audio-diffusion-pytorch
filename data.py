@@ -57,6 +57,8 @@ class Music4AllDataset(Dataset):
             f'total number of chunks: {self.boundaries[-1]}')
         self.boundaries = np.array(self.boundaries)
 
+        self.audio_conditions = None
+
     def __len__(self) -> int:
         return self.boundaries[-1]
 
@@ -78,6 +80,8 @@ class Music4AllDataset(Dataset):
             data = np.concatenate([data, data], axis=-1)
         return data
 
+    def _get_audio_condition(self, index: int):
+        return self.audio_conditions[index]
 
     def __getitem__(self, index: int):
         file_idx, chunk_idx = self._get_file_idx_and_chunk_idx(index)
@@ -89,11 +93,21 @@ class Music4AllDataset(Dataset):
                 data = np.pad(
                     data, ((0, self.segment_length - data.shape[0]),), 'constant')
         data = torch.from_numpy(data)
+
+        if self.audio_conditions is not None:
+            audio_condition = self._get_audio_condition(index)
+            return data, audio_condition
+
         return data
 
 
 class Music4AllDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size: int = 32, num_workers: int = 64, sample_rate: int = 16000, segment_length: int = 81920):
+    def __init__(self,
+                 batch_size: int = 32,
+                 num_workers: int = 64,
+                 sample_rate: int = 16000,
+                 segment_length: int = 81920,
+                 condition=False):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -104,6 +118,7 @@ class Music4AllDataModule(pl.LightningDataModule):
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
+        self.condition = condition
 
     def setup(self, stage=None):
         if stage == "fit":
@@ -114,6 +129,10 @@ class Music4AllDataModule(pl.LightningDataModule):
                     split="train", sample_rate=self.sample_rate, segment_length=self.segment_length)
                 if self.cache:
                     save_dataset(self.train_dataset, f"{self.cache_folder}/fit.pkl")
+            if self.condition:
+                self.train_dataset.audio_conditions = pickle.load(open(
+                    "/import/c4dm-04/yz007/audio_conditions_train.pkl", "rb"))
+
         if stage == "validate" or stage == "fit":
             if self.cache and os.path.exists(f"{self.cache_folder}/validate.pkl"):
                 self.val_dataset = load_dataset(f"{self.cache_folder}/validate.pkl")
@@ -122,6 +141,10 @@ class Music4AllDataModule(pl.LightningDataModule):
                     split="val", sample_rate=self.sample_rate, segment_length=self.segment_length)
                 if self.cache:
                     save_dataset(self.val_dataset, f"{self.cache_folder}/validate.pkl")
+            if self.condition:
+                self.val_dataset.audio_conditions = pickle.load(open(
+                    "/import/c4dm-04/yz007/audio_conditions_val.pkl", "rb"))
+
         if stage == "test":
             if self.cache and os.path.exists(f"{self.cache_folder}/test.pkl"):
                 self.test_dataset = load_dataset(f"{self.cache_folder}/test.pkl")
