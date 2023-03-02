@@ -13,19 +13,19 @@ class GuidanceModel(pl.LightningModule):
         super().__init__()
         self.model = DiffusionModel(
                     net_t=UNetV0, # The model type used for diffusion
-                    in_channels=2, # U-Net: number of input/output (audio) channels
-                    channels=[8, 32, 64, 128, 256, 512, 512, 1024, 1024], # U-Net: channels at each layer
-                    factors=[1, 4, 4, 4, 2, 2, 2, 2, 2], # U-Net: downsampling and upsampling factors at each layer
-                    items=[1, 2, 2, 2, 2, 2, 2, 4, 4], # U-Net: number of repeating items at each layer
-                    attentions=[0, 0, 0, 0, 0, 1, 1, 1, 1], # U-Net: attention enabled/disabled at each layer
-                    attention_heads=8, # U-Net: number of attention heads per attention block
-                    attention_features=64, # U-Net: number of attention features per attention block,
+                    in_channels=32, # U-Net: number of input/output (audio) channels
+                    channels=[64, 128, 256, 512, 512], # U-Net: channels at each layer
+                    factors=[1, 2, 2, 2, 2], # U-Net: downsampling and upsampling factors at each layer
+                    items=[1, 2, 2, 2, 2], # U-Net: number of repeating items at each layer
+                    attentions=[0, 1, 1, 1, 1], # U-Net: attention enabled/disabled at each layer
+                    attention_heads=4, # U-Net: number of attention heads per attention block
+                    attention_features=128, # U-Net: number of attention features per attention block,
                     diffusion_t=VDiffusion, # The diffusion method used
                     sampler_t=VSampler, # The diffusion sampler used
                     embedding_features=128, # U-Net: embedding features
                     use_embedding_cfg=True,
                     embedding_max_length=1,  # U-Net: text embedding maximum length (default for T5-base)
-                    cross_attentions=[0, 0, 0, 1, 1, 1, 1, 1, 1], # U-Net: cross-attention enabled/disabled at each layer
+                    cross_attentions=[1, 1, 1, 1, 1], # U-Net: cross-attention enabled/disabled at each layer
                 )
         pretrained_model_ckpt = "/import/c4dm-04/yz007/best.pth"
         # self.condition_model, self.tokenizer, self.condition_model_config = get_model(ckpt=pretrained_model_ckpt)
@@ -43,13 +43,13 @@ class GuidanceModel(pl.LightningModule):
     @torch.no_grad()
     def sample(self, num_steps=100, *args, **kwargs) -> torch.Tensor:
         text_input_vecs = pickle.load(open("/homes/yz007/audio-diffusion-pytorch/text_embs.pkl", "rb")) # [4, 128]
-        text_input_vecs = text_input_vecs.unsqueeze(1)
-        noise = torch.randn(text_input_vecs.size(0), 2, self.latent_length)
-        latent = self.model.sample(noise,
+        text_input_vecs = text_input_vecs.unsqueeze(1).to(self.device)
+        noise = torch.randn(text_input_vecs.size(0), 32, self.latent_length, device=self.device)
+        latent = self.model.sample(noise.to(self.device),
                                  embedding=text_input_vecs,
                                  embedding_scale=5.0,
                                  num_steps=num_steps, *args, **kwargs)
-        sample = self.vocoder.decode(latent)
+        sample = self.vocoder.model.decode(latent, num_steps=num_steps)
         for i in range(sample.shape[0]):
             output_sample = [wandb.Audio(sample[i].cpu().permute(1, 0).numpy(), sample_rate=16000)
                              for i in range(sample.shape[0])]
@@ -58,8 +58,9 @@ class GuidanceModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         audio_wave, audio_condition = batch
         audio_wave = audio_wave.permute(0, 2, 1)
+        latent = self.vocoder.model.encode(audio_wave)
         audio_condition = audio_condition.unsqueeze(1)
-        loss = self.model(audio_wave,
+        loss = self.model(latent,
                           embedding=audio_condition,
                           embedding_mask_proba=0.1)
         self.log("train_loss", loss)
@@ -68,8 +69,9 @@ class GuidanceModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         audio_wave, audio_condition = batch
         audio_wave = audio_wave.permute(0, 2, 1)
+        latent = self.vocoder.model.encode(audio_wave)
         audio_condition = audio_condition.unsqueeze(1)
-        loss = self.model(audio_wave,
+        loss = self.model(latent,
                           embedding=audio_condition,
                           embedding_mask_proba=0.1)
         self.log("val_loss", loss)
