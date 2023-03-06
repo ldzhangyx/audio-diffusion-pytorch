@@ -8,22 +8,20 @@ import pickle
 
 # GPU 3
 
-if __name__ == "__main__":
 
-    import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
-    pretrained_model_ckpt = "/import/c4dm-04/yz007/best.pth"
-    condition_model, tokenizer, condition_model_config = get_model(ckpt=pretrained_model_ckpt)
-    for param in condition_model.parameters():
-        param.requires_grad = False
 
 def text_condition():
 
-    query = ["fusion jazz with synth, bass, drums, saxophone",
-             "beaufitul classical music with piano, violin, cello, flute, harp, and oboe",
-             "exciting rock music with guitar, bass, drums",
-             "pop music with woman vocal, with piano accompaniment",]
+    # query = ["fusion jazz with synth, bass, drums, saxophone",
+    #          "beaufitul classical music with piano, violin, cello, flute, harp, and oboe",
+    #          "exciting rock music with guitar, bass, drums",
+    #          "pop music with woman vocal, with piano accompaniment",]
+
+    query = ["blues rhythmic sax performance",
+             "beautiful largo classical violin",
+             "exciting rock music with guitar and drums",
+             "pop music with woman vocal and piano accompaniment",]
 
 
     text_input = [tokenizer(query[i], return_tensors="pt")['input_ids'] for i in range(len(query))]
@@ -72,3 +70,16 @@ def get_audio_conditions():
 
         # save
         pickle.dump(audio_conditions, open(f"audio_conditions_{i}.pkl", "wb"))
+
+
+if __name__ == "__main__":
+
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+
+    pretrained_model_ckpt = "/import/c4dm-04/yz007/best.pth"
+    condition_model, tokenizer, condition_model_config = get_model(ckpt=pretrained_model_ckpt)
+    for param in condition_model.parameters():
+        param.requires_grad = False
+
+    text_condition()
