@@ -8,7 +8,7 @@ from audio_diffusion_pytorch import EMA
 import wandb
 
 wandb.login()
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 BATCH_SIZE = 32
 SAMPLING_RATE = int(16000 / 1)
 SEGMENT_LENGTH = int(2**17 / 1)
@@ -19,7 +19,7 @@ def main():
     data_module = Music4AllDataModule(batch_size=BATCH_SIZE,
                                       sample_rate=SAMPLING_RATE,
                                       segment_length=SEGMENT_LENGTH,
-                                      condition=True)
+                                      condition=False)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         save_top_k=3,
         monitor="val_loss",
@@ -40,16 +40,18 @@ def main():
         precision=16,
         log_every_n_steps=1,
         logger=pl.loggers.WandbLogger(project=f"latent-{SAMPLING_RATE}",
+                                      # version='vno45zbi',
                                       ),
-        max_epochs=80,
+        max_epochs=100,
         val_check_interval=0.2,
         limit_val_batches=300,
-        limit_train_batches=8000,
+        limit_train_batches=9000,
         callbacks=[checkpoint_callback, ema_callback]
     )
-    # guidance_model = guidance_model.load_from_checkpoint("/import/c4dm-04/yz007/checkpoints/ae-epoch=01-val_loss=0.10.ckpt")
+    # guidance_model = guidance_model.load_from_checkpoint("/import/c4dm-04/yz007/checkpoints/latent-epoch=20-val_loss=0.1403.ckpt",
+    #                                                      strict=False)
     trainer.fit(guidance_model,
-                # ckpt_path="/import/c4dm-04/yz007/checkpoints/ae-epoch=49-val_loss=0.0723.ckpt",
+                # ckpt_path="/import/c4dm-04/yz007/checkpoints/latent-epoch=20-val_loss=0.1403.ckpt",
                 datamodule=data_module,
                 )
 

@@ -21,14 +21,17 @@ def text_condition():
     query = ["blues rhythmic sax performance",
              "beautiful largo classical violin",
              "exciting rock music with guitar and drums",
-             "pop music with woman vocal and piano accompaniment",]
+             "drums",
+             "piano",
+             "piano and violin",
+             "woman vocal and piano accompaniment",]
 
 
     text_input = [tokenizer(query[i], return_tensors="pt")['input_ids'] for i in range(len(query))]
     with torch.no_grad():
         text_embs = [condition_model.encode_bert_text(text_input[i], None) for i in range(len(query))]
         text_embs = torch.cat(text_embs, dim=0)
-        pickle.dump(text_embs, open("text_embs.pkl", "wb"))
+        pickle.dump(text_embs, open("text_embs_new.pkl", "wb"))
         print(text_embs.shape)
 
 
@@ -36,7 +39,7 @@ def text_condition():
 def get_audio_conditions():
     data = Music4AllDataModule(batch_size=64, num_workers=64, sample_rate=16000, segment_length=2**17)
     data.setup(stage="fit")
-    train_dataloader = data.train_dataloader(shuffle=False)
+    train_dataloader = data.train_dataloader(shuffle=True)
     val_dataloader = data.val_dataloader()
     test_dataloader = data.test_dataloader()
 
@@ -75,11 +78,11 @@ def get_audio_conditions():
 if __name__ == "__main__":
 
     import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 
     pretrained_model_ckpt = "/import/c4dm-04/yz007/best.pth"
     condition_model, tokenizer, condition_model_config = get_model(ckpt=pretrained_model_ckpt)
     for param in condition_model.parameters():
         param.requires_grad = False
 
-    text_condition()
+    get_audio_conditions()
